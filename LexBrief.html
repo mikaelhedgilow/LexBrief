@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LexBrief</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --surface2: #1f1f1f;
+      --border: #2a2a2a;
+      --gold: #c9a84c;
+      --gold-light: #e0c068;
+      --text: #e8e8e8;
+      --text-dim: #888;
+      --red: #c0392b;
+      --green: #27ae60;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Georgia', serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+
+    .logo-lex {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 1px;
+    }
+
+    .logo-brief {
+      font-size: 1.8rem;
+      font-weight: 300;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+
+    .logo-tagline {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .api-key-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      letter-spacing: 1px;
+      transition: all 0.2s;
+      font-family: 'Georgia', serif;
+    }
+
+    .api-key-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* ── Main ── */
+    main {
+      flex: 1;
+      max-width: 860px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 48px 24px;
+    }
+
+    /* ── Upload zone ── */
+    .upload-zone {
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: var(--surface);
+      position: relative;
+    }
+
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: var(--gold);
+      background: #1a1700;
+    }
+
+    .upload-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-icon {
+      font-size: 2.4rem;
+      margin-bottom: 16px;
+      color: var(--gold);
+    }
+
+    .upload-title {
+      font-size: 1.1rem;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .upload-sub {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      font-family: sans-serif;
+    }
+
+    /* ── Court type selector ── */
+    .court-selector {
+      margin-top: 24px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .court-btn {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-dim);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Georgia', serif;
+      font-size: 0.85rem;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .court-btn.active {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: #1a1700;
+    }
+
+    .court-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* ── Analyze button ── */
+    .analyze-btn {
+      margin-top: 24px;
+      width: 100%;
+      padding: 16px;
+      background: var(--gold);
+      color: #0d0d0d;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: 'Georgia', serif;
+      transition: background 0.2s;
+    }
+
+    .analyze-btn:hover { background: var(--gold-light); }
+    .analyze-btn:disabled { background: #3a3000; color: #666; cursor: not-allowed; }
+
+    /* ── Status ── */
+    .status {
+      margin-top: 20px;
+      padding: 14px 18px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-family: sans-serif;
+      display: none;
+    }
+
+    .status.loading {
+      align-items: center;
+      gap: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+    }
+
+    .status.error {
+      display: block;
+      background: #1a0000;
+      border: 1px solid var(--red);
+      color: #e07070;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--gold);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Result ── */
+    .result {
+      margin-top: 40px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      display: none;
+    }
+
+    .result.visible { display: block; }
+
+    .result-header {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .result-title {
+      font-size: 0.78rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .result-filename {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      font-family: sans-serif;
+    }
+
+    .result-body {
+      padding: 32px 36px;
+      background: var(--surface);
+    }
+
+    .section {
+      margin-bottom: 32px;
+    }
+
+    .section:last-child { margin-bottom: 0; }
+
+    .section-label {
+      font-size: 0.7rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 10px;
+      font-family: sans-serif;
+    }
+
+    .section-content {
+      font-size: 0.95rem;
+      line-height: 1.75;
+      color: var(--text);
+      border-left: 2px solid var(--border);
+      padding-left: 16px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 28px 0;
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      letter-spacing: 1px;
+      font-family: sans-serif;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* ── API Key Modal ── */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-bg.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 36px;
+      width: 100%;
+      max-width: 460px;
+    }
+
+    .modal h2 {
+      font-size: 1.1rem;
+      color: var(--gold);
+      margin-bottom: 8px;
+    }
+
+    .modal p {
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      font-family: sans-serif;
+      line-height: 1.6;
+    }
+
+    .modal input {
+      width: 100%;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.9rem;
+      font-family: monospace;
+      margin-bottom: 16px;
+    }
+
+    .modal input:focus { outline: none; border-color: var(--gold); }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .btn-cancel {
+      padding: 10px 18px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Georgia', serif;
+      font-size: 0.85rem;
+    }
+
+    .btn-save {
+      padding: 10px 18px;
+      background: var(--gold);
+      color: #0d0d0d;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'Georgia', serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 40px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: sans-serif;
+      letter-spacing: 1px;
+    }
+
+    .file-name-display {
+      margin-top: 14px;
+      font-size: 0.8rem;
+      color: var(--gold);
+      font-family: sans-serif;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div>
+    <div class="logo">
+      <span class="logo-lex">Lex</span><span class="logo-brief">Brief</span>
+    </div>
+    <div class="logo-tagline">Juridisk rättsfallsanalys</div>
+  </div>
+  <button class="api-key-btn" onclick="openModal()">⚙ API-nyckel</button>
+</header>
+
+<!-- Main -->
+<main>
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone">
+    <input type="file" accept=".pdf" id="fileInput" />
+    <div class="upload-icon">⚖</div>
+    <div class="upload-title">Ladda upp en dom eller rättsfall</div>
+    <div class="upload-sub">Dra och släpp en PDF-fil hit, eller klicka för att välja</div>
+  </div>
+  <div class="file-name-display" id="fileNameDisplay"></div>
+
+  <!-- Court type -->
+  <div class="court-selector">
+    <button class="court-btn active" data-type="swedish" onclick="setCourtType(this)">🇸🇪 Svensk domstol</button>
+    <button class="court-btn" data-type="eu" onclick="setCourtType(this)">🇪🇺 EU-domstolen</button>
+    <button class="court-btn" data-type="echr" onclick="setCourtType(this)">⚖ Europadomstolen (ECHR)</button>
+  </div>
+
+  <!-- Analyze -->
+  <button class="analyze-btn" id="analyzeBtn" onclick="analyze()" disabled>
+    Analysera dom
+  </button>
+
+  <!-- Status -->
+  <div class="status loading" id="statusLoading">
+    <div class="spinner"></div>
+    <span id="statusText">Läser PDF...</span>
+  </div>
+  <div class="status error" id="statusError"></div>
+
+  <!-- Result -->
+  <div class="result" id="result">
+    <div class="result-header">
+      <span class="result-title">Sammanfattning</span>
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="result-filename" id="resultFilename"></span>
+        <button class="copy-btn" onclick="copyResult()">Kopiera</button>
+      </div>
+    </div>
+    <div class="result-body" id="resultBody"></div>
+  </div>
+</main>
+
+<!-- Footer -->
+<footer>LexBrief &mdash; Rättsfallsanalys för juriststudenter &mdash; Drivs av Claude AI</footer>
+
+<!-- API Key Modal -->
+<div class="modal-bg" id="modalBg" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <h2>Claude API-nyckel</h2>
+    <p>Din nyckel lagras lokalt i webbläsaren och skickas aldrig någon annanstans än direkt till Anthropics API. Skaffa en nyckel på <strong style="color:var(--text)">console.anthropic.com</strong>.</p>
+    <input type="password" id="apiKeyInput" placeholder="sk-ant-..." />
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Avbryt</button>
+      <button class="btn-save" onclick="saveKey()">Spara</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── PDF.js setup ──
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  let selectedFile = null;
+  let courtType = 'swedish';
+  let serverHasKey = false;
+
+  // Kolla om servern redan har API-nyckel (Render env var)
+  fetch('/api/has-key').then(r => r.json()).then(d => {
+    serverHasKey = d.hasKey;
+    if (serverHasKey) {
+      document.querySelector('.api-key-btn').style.display = 'none';
+    }
+  }).catch(() => {});
+
+  // ── File input ──
+  const fileInput = document.getElementById('fileInput');
+  const uploadZone = document.getElementById('uploadZone');
+  const fileNameDisplay = document.getElementById('fileNameDisplay');
+  const analyzeBtn = document.getElementById('analyzeBtn');
+
+  fileInput.addEventListener('change', e => {
+    if (e.target.files[0]) setFile(e.target.files[0]);
+  });
+
+  uploadZone.addEventListener('dragover', e => {
+    e.preventDefault();
+    uploadZone.classList.add('drag-over');
+  });
+
+  uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('drag-over');
+  });
+
+  uploadZone.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type === 'application/pdf') setFile(f);
+  });
+
+  function setFile(f) {
+    selectedFile = f;
+    fileNameDisplay.textContent = '📄 ' + f.name;
+    fileNameDisplay.style.display = 'block';
+    analyzeBtn.disabled = false;
+    hideStatus();
+    document.getElementById('result').classList.remove('visible');
+  }
+
+  // ── Court type ──
+  function setCourtType(btn) {
+    document.querySelectorAll('.court-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    courtType = btn.dataset.type;
+  }
+
+  // ── API Key modal ──
+  function openModal() {
+    document.getElementById('apiKeyInput').value = localStorage.getItem('lexbrief_key') || '';
+    document.getElementById('modalBg').classList.add('open');
+  }
+  function closeModal() {
+    document.getElementById('modalBg').classList.remove('open');
+  }
+  function closeModalOnBg(e) {
+    if (e.target === document.getElementById('modalBg')) closeModal();
+  }
+  function saveKey() {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (key) localStorage.setItem('lexbrief_key', key);
+    closeModal();
+  }
+
+  // ── Status helpers ──
+  function showLoading(msg) {
+    document.getElementById('statusText').textContent = msg;
+    document.getElementById('statusLoading').style.display = 'flex';
+    document.getElementById('statusError').style.display = 'none';
+  }
+  function showError(msg) {
+    document.getElementById('statusError').textContent = msg;
+    document.getElementById('statusError').style.display = 'block';
+    document.getElementById('statusLoading').style.display = 'none';
+  }
+  function hideStatus() {
+    document.getElementById('statusLoading').style.display = 'none';
+    document.getElementById('statusError').style.display = 'none';
+  }
+
+  // ── Extract text from PDF ──
+  async function extractText(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let text = '';
+    for (let i = 1; i <= Math.min(pdf.numPages, 40); i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      text += content.items.map(item => item.str).join(' ') + '\n';
+    }
+    return text.trim();
+  }
+
+  // ── Court-specific system prompt ──
+  function buildSystemPrompt() {
+    const base = `Du är en erfaren jurist på en svensk advokatbyrå som skriver kompakta rättsfallssammanfattningar för juriststudenter.
+
+Var KORTFATTAD — varje sektion ska vara 2–4 meningar max. Använd korrekt juridisk svenska.
+
+Returnera svaret i exakt detta format:
+
+**BAKGRUND**
+[Parterna, vad tvisten/åtalet gäller och vilket domstolsled avgörandet kommer från. Max 3 meningar.]
+
+**RÄTTSLIG FRÅGA**
+[Den centrala rättsliga frågan domstolen hade att avgöra, formulerad som en fråga.]
+
+**DOMSTOLENS BEDÖMNING**
+[Hur domstolen resonerade och vilket rättsligt stöd som tillämpades. Max 3 meningar.]
+
+**UTFALL**
+[Domslutet — vem vann, vilken påföljd/ersättning etc. Max 2 meningar.]
+
+**PREJUDIKAT**
+[Endast om avgörandet är från en prejudikatinstans (HD, HFD, EU-domstolen, Europadomstolen): Beskriv exakt vilken rättsregel eller princip som fastslogs i just DETTA mål och hur det påverkar framtida rättstillämpning. Formulera prejudikatet som en tydlig sats: "Domen fastslår att..." — annars skriv endast: Ej prejudikatinstans.]`;
+
+    const courtNotes = {
+      swedish: '\n\nDetta är ett SVENSKT rättsfall. Tillämpa svenska rättskällor och terminologi.',
+      eu: '\n\nDetta är ett EU-DOMSTOLSMÅL. Beakta EU-rättens företräde, direkt effekt och relevanta EU-rättsliga principer.',
+      echr: '\n\nDetta är ett EUROPADOMSTOLSMÅL (ECHR). Beakta EKMR-artiklar, Strasbourg-praxis och marginaldoktrinen.',
+    };
+
+    return base + courtNotes[courtType];
+  }
+
+  // ── Main analyze function ──
+  async function analyze() {
+    if (!selectedFile) return;
+
+    const apiKey = serverHasKey ? '' : localStorage.getItem('lexbrief_key');
+    if (!serverHasKey && !apiKey) {
+      openModal();
+      return;
+    }
+
+    analyzeBtn.disabled = true;
+    showLoading('Läser PDF...');
+    document.getElementById('result').classList.remove('visible');
+
+    let text;
+    try {
+      text = await extractText(selectedFile);
+      if (!text || text.length < 50) throw new Error('Kunde inte extrahera text från PDF:en. Är filen skannad?');
+    } catch (err) {
+      showError('PDF-läsningsfel: ' + err.message);
+      analyzeBtn.disabled = false;
+      return;
+    }
+
+    // Trim to ~12 000 chars to stay within token limits
+    const trimmed = text.length > 12000 ? text.slice(0, 12000) + '\n\n[...dokumentet avkortat...]' : text;
+
+    showLoading('Analyserar domen med Claude AI...');
+
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: apiKey,
+          text: trimmed,
+          systemPrompt: buildSystemPrompt(),
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || `API-fel ${response.status}`);
+      }
+
+      const data = await response.json();
+      const summary = data.content[0].text;
+
+      renderResult(summary, selectedFile.name);
+      hideStatus();
+    } catch (err) {
+      showError('API-fel: ' + err.message);
+    } finally {
+      analyzeBtn.disabled = false;
+    }
+  }
+
+  // ── Render result ──
+  function renderResult(text, filename) {
+    const sections = [
+      { key: 'BAKGRUND', label: 'Bakgrund' },
+      { key: 'RÄTTSLIG FRÅGA', label: 'Rättslig fråga' },
+      { key: 'DOMSTOLENS BEDÖMNING', label: 'Domstolens bedömning' },
+      { key: 'UTFALL', label: 'Utfall' },
+      { key: 'PREJUDIKAT', label: 'Prejudikat' },
+    ];
+
+    let html = '';
+
+    sections.forEach((sec, i) => {
+      const regex = new RegExp(`\\*\\*${sec.key}\\*\\*\\s*([\\s\\S]*?)(?=\\*\\*(?:BAKGRUND|RÄTTSLIG FRÅGA|DOMSTOLENS BEDÖMNING|UTFALL|PREJUDIKAT)\\*\\*|$)`, 'i');
+      const match = text.match(regex);
+      const content = match ? match[1].trim() : '';
+
+      if (content) {
+        if (i > 0) html += '<hr class="divider" />';
+        html += `
+          <div class="section">
+            <div class="section-label">${sec.label}</div>
+            <div class="section-content">${content.replace(/\n/g, '<br>')}</div>
+          </div>`;
+      }
+    });
+
+    // Fallback: show raw text if parsing failed
+    if (!html) {
+      html = `<div class="section"><div class="section-content">${text.replace(/\n/g, '<br>').replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--gold)">$1</strong>')}</div></div>`;
+    }
+
+    document.getElementById('resultBody').innerHTML = html;
+    document.getElementById('resultFilename').textContent = filename;
+    document.getElementById('result').classList.add('visible');
+
+    // Store for copy
+    document.getElementById('result').dataset.raw = text;
+
+    // Scroll into view
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── Copy ──
+  function copyResult() {
+    const raw = document.getElementById('result').dataset.raw || '';
+    navigator.clipboard.writeText(raw).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Kopierat ✓';
+      setTimeout(() => btn.textContent = 'Kopiera', 2000);
+    });
+  }
+</script>
+</body>
+</html>
