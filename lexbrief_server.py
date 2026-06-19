@@ -10,6 +10,14 @@ API_KEY_ENV = os.environ.get('ANTHROPIC_API_KEY', '')
 
 class LexBriefHandler(http.server.SimpleHTTPRequestHandler):
 
+    def do_GET(self):
+        if self.path == '/':
+            self.send_response(301)
+            self.send_header('Location', '/LexBrief.html')
+            self.end_headers()
+        else:
+            super().do_GET()
+
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
