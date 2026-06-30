@@ -1,1 +1,0 @@
-# Inga externa beroenden – använder enbart Pythons standardbibliotek
